@@ -44,7 +44,7 @@ class Post(models.Model):
     publish_date = models.DateTimeField(db_index=True, blank=True, null=True)
 
     def __str__(self):
-        return self.title
+        return f'{self.title} by {self.author}'
 
     class Meta:
         ordering = ("-publish_date",)

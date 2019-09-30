@@ -110,12 +110,36 @@ class PostAdmin(admin.ModelAdmin):
         "categories",
     )
 
+    # This tells Django to use `select_related` when retrieving data
+    # for the admin list view
+    # If the column is already in `list_display` this isn't necessary
+    # https://docs.djangoproject.com/en/2.2/ref/contrib/admin/#django.contrib.admin.ModelAdmin.list_select_related
+    list_select_related = ("author",)
+
+    # Use a custom paginator
+    # https://docs.djangoproject.com/en/2.2/ref/contrib/admin/#django.contrib.admin.ModelAdmin.paginator
+    #paginator = CursorPaginator
+
+    # Use a popup/search interface instead of a "<select>" interface
+    # when selecting these fields on the detail/edit view
+    # https://docs.djangoproject.com/en/2.2/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields
+    raw_id_fields = ("author",)
+
     # Fields searchable by the search box
     # https://docs.djangoproject.com/en/2.2/ref/contrib/admin/#django.contrib.admin.ModelAdmin.search_fields
     search_fields = ("title", "body")
+
+    # Don't show counts on filtered admin pages (e.g. 99 results (103 total))
+    # https://docs.djangoproject.com/en/2.2/ref/contrib/admin/#django.contrib.admin.ModelAdmin.show_full_result_count
+    show_full_result_count = False
 
     def post_categories(self, obj):
         """Show a combined list of categories for each post"""
 
         # Note: This is purposefully not optimized
         return ", ".join([c.name for c in obj.categories.all()])
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.prefetch_related("categories")
+        return qs

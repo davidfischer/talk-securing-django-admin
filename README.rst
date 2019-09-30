@@ -1,9 +1,17 @@
-Customizing the Django Admin
-============================
+Optimizing the Django Admin
+===========================
 
 This talk is made up of slides and code samples.
 If you just want to download the slides,
 you can do that in the "Releases" section of the repository.
+
+
+Other talks in this series
+--------------------------
+
+* Customizing the Django Admin (`slides <https://github.com/davidfischer/talk-customizing-django-admin>`_, `video <https://www.youtube.com/watch?v=OtZhbtjaYBY>`_)
+* Securing the Django Admin (not yet given)
+* Django Admin Add-Ons & Extensions (not yet given)
 
 
 Building the slides

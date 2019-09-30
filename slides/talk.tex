@@ -1,8 +1,8 @@
 \documentclass[aspectratio=169]{beamer}
 
-\title{Customizing the Django Admin}
-\author{David Fischer}
-\date{May 23, 2019}
+\title{Optimizing the Django Admin}
+\author{David Fischer (djfische@gmail.com)}
+\date{September 26, 2019}
 
 %% Beamer Themes
 \usetheme{Berlin}
@@ -61,7 +61,6 @@ class Author(models.Model):
 
 class Post(models.Model):
     title = models.CharField(max_length=200)
-    slug = models.SlugField()
     author = models.ForeignKey(
       Author, 
       on_delete=models.CASCADE,
@@ -69,6 +68,9 @@ class Post(models.Model):
     categories = models.ManyToManyField(Category)
     body = models.TextField()
     publish_date = models.DateTimeField()
+
+    def __str__(self):
+        return f'{self.title} by {self.author}'
 \end{minted}
 } 
 
@@ -92,11 +94,14 @@ class CategoryAdmin(admin.ModelAdmin):
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     list_display = (
-      "title", 
-      "author", 
+      "__str__",
       "post_categories", 
       "publish_date",
     )
+
+    def post_categories(self, obj):
+        """Show a combined list of categories for each post"""
+        return ", ".join([c.name for c in obj.categories.all()])
 \end{minted}
 }
 
@@ -113,149 +118,230 @@ class PostAdmin(admin.ModelAdmin):
 \end{frame}
 
 
-%% Filters
+\begin{frame}
+  \begin{figure}[p]
+    \centering
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/django-debug-toolbar.png}}
+  \end{figure}
+\end{frame}
+
+
+\begin{frame}
+  \begin{figure}[p]
+    \centering
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/debug-toolbar-queries.png}}
+  \end{figure}
+\end{frame}
+
+
 \begin{frame}[fragile]
-\frametitle{Basic Filters}
+\frametitle{One Culprit}
 
 {\tiny
 \begin{minted}{python}
-## blog/admin.py
+## blog/models.py
 
-class PostAdmin(admin.ModelAdmin):
+class Post(models.Model):
+    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+
     # ...
-    list_filter = ("publish_date", "author")
+
+    def __str__(self):
+        return f'{self.title} by {self.author}'
 \end{minted}
 }
 
 \end{frame}
 
-%% More basic filters
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/default-filters.png}}
-  \end{figure}
-\end{frame}
 
-
-%% More Advanced Filters
 \begin{frame}[fragile]
-\frametitle{Advanced \& Custom Filters}
+\frametitle{One Possible Fix}
 
 {\tiny
 \begin{minted}{python}
 ## blog/admin.py
 
-class PostPublishDateFilter(admin.SimpleListFilter):
-    title = "publish date"
-    parameter_name = "publish"
-
-    def lookups(self, request, model_admin):
-        return [
-            ("unpublished", "Unpublished"),
-            ("recent", "Recently Published"),
-            ("old", "Old"),
-        ]
-
-    def queryset(self, request, queryset):
-        value = self.value()
-        if value == "unpublished":
-            return queryset.filter(publish_date=None)
-        if value == "recent":
-            return queryset.filter(publish_date__gt=timezone.now() - timedelta(days=30))
-        if value == "old":
-            return queryset.filter(publish_date__lt=timezone.now() - timedelta(days=365))
-        return queryset
-
+@admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     # ...
-    list_filter = (PostPublishDateFilter, "author")
+    list_select_related = ("author",)
+\end{minted}
+}
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Another Possible Fix}
+
+{\tiny
+\begin{minted}{python}
+## blog/admin.py
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    # ...
+    list_display = ("title", "author", "post_categories", "publish_date")
+\end{minted}
+}
+
+\end{frame}
+
+
+\begin{frame}
+  \begin{figure}[p]
+    \centering
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/half-done.png}}
+  \end{figure}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Another Culprit}
+
+{\tiny
+\begin{minted}{python}
+## blog/admin.py
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    # ...
+
+    def post_categories(self, obj):
+        """Show a combined list of categories for each post"""
+        return ", ".join([c.name for c in obj.categories.all()])
+\end{minted}
+}
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Handling Reverse FK Relations or ManyToMany Relations}
+
+{\tiny
+\begin{minted}{python}
+## blog/admin.py
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    # ...
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.prefetch_related("categories")
+        return qs
+\end{minted}
+}
+
+\end{frame}
+
+
+\begin{frame}
+  \begin{figure}[p]
+    \centering
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/query-optimization-done.png}}
+  \end{figure}
+\end{frame}
+
+
+\begin{frame}
+  \begin{figure}[p]
+    \centering
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/search-counts.png}}
+
+    \vfill
+
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/pagination.png}}
+  \end{figure}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{A Partial Fix}
+{\tiny
+\begin{minted}{python}
+## blog/admin.py
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    # ...
+
+    # Don't show counts on filtered admin pages
+    # (e.g. 99 results (103 total))
+    show_full_result_count = False
 \end{minted}
 }
 \end{frame}
 
-%% More advanced filters
+
+\begin{frame}[fragile]
+\frametitle{A Fix for Expensive Counts}
+{\tiny
+\begin{minted}{python}
+## blog/admin.py
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    # ...
+
+    # Use a custom paginator
+    paginator = CustomPaginator
+\end{minted}
+}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Custom Paginator Approaches}
+  \begin{itemize}
+    \item {\small Use a count estimate from your database backend}
+    \item {\small Hard code a large number for the count}
+    \item {\small Cache the number of rows (or otherwise calculate infrequently)}
+  \end{itemize}
+\end{frame}
+
+
 \begin{frame}
   \begin{figure}[p]
     \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/custom-filter.png}}
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/quantity-foreign-keys.png}}
   \end{figure}
 \end{frame}
 
 
-%% Date Hierarchies
 \begin{frame}[fragile]
-\frametitle{Filtering and Grouping by a Date Field}
+\frametitle{Large Numbers of Foreign Key Choices}
 
 {\tiny
 \begin{minted}{python}
 ## blog/admin.py
 
+@admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     # ...
-    date_hierarchy = "publish_date"
+
+    raw_id_fields = ("author",)
 \end{minted}
-} 
+}
+
 \end{frame}
+
+
 \begin{frame}
-\begin{figure}[p]
-  \centering
-  \fbox{\includegraphics[width=0.8\paperwidth]{images/date-hierarchy.png}}
-\end{figure}
-
-\end{frame}
-
-
-%% List Editable
-\begin{frame}[fragile]
-\frametitle{Editable Items in the List View}
-
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-class AuthorAdmin(admin.ModelAdmin):
-    # ...
-    list_editable = ("status",)
-\end{minted}
-} 
-\end{frame}
-\begin{frame}
-\begin{figure}[p]
-  \centering
-  \fbox{\includegraphics[width=0.8\paperwidth]{images/list-editable.png}}
-\end{figure}
-
-\end{frame}
-
-
-%% Search
-\begin{frame}[fragile]
-\frametitle{Search}
-
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-class PostAdmin(admin.ModelAdmin):
-    # ...
-    search_fields = ("title", "body")
-\end{minted}
-} 
-\end{frame}
-\begin{frame}
-\begin{figure}[p]
-  \centering
-  \fbox{\includegraphics[width=0.8\paperwidth]{images/search.png}}
-\end{figure}
-
+  \begin{figure}[p]
+    \centering
+    \fbox{\includegraphics[width=0.8\paperwidth]{images/foreign-key-selector.png}}
+  \end{figure}
 \end{frame}
 
 
 \begin{frame}
 \frametitle{Resources}
   \begin{itemize}
-    \item {\small Django Tutorial \#7 - \href{https://docs.djangoproject.com/en/2.2/intro/tutorial07/}{docs.djangoproject.com}}
+    \item {\small \href{https://www.youtube.com/watch?v=f8cFjiyxQuQ}{But, Why is the Django Admin Slow? (Jacinda Shelly - PyCon 2019)}}
+    \item {\small \href{https://docs.djangoproject.com/en/2.2/ref/contrib/admin/}{Django Admin Site Docs}}
+    \item {\small \href{https://docs.djangoproject.com/en/2.2/topics/db/optimization/}{Django DB Access Optimization Docs}}
     \item {\small Django Admin Cookbook - \href{https://books.agiliq.com/projects/django-admin-cookbook}{books.agiliq.com}}
     \item {\small \href{https://hakibenita.com/tag/django-admin}{hakibenita.com}}
   \end{itemize}
@@ -264,8 +350,15 @@ class PostAdmin(admin.ModelAdmin):
 
 \begin{frame}
 \frametitle{Interested in more Django Admin talks?}
+  Past Talks
   \begin{itemize}
-    \item {\small Optimizing the Django Admin for Performance}
+    \item {\small \href{https://github.com/davidfischer/talk-customizing-django-admin}{Customizing the Django Admin}}
+  \end{itemize}
+
+  \vfill
+
+  Future Talks
+  \begin{itemize}
     \item {\small Securing the Django Admin}
     \item {\small Django Admin Add-Ons \& Extensions}
   \end{itemize}
