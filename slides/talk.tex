@@ -2,7 +2,7 @@
 
 \title{Optimizing the Django Admin}
 \author{David Fischer (djfische@gmail.com)}
-\date{September 26, 2019}
+\date{November 21, 2019}
 
 %% Beamer Themes
 \usetheme{Berlin}
@@ -245,61 +245,61 @@ class PostAdmin(admin.ModelAdmin):
 \end{frame}
 
 
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/search-counts.png}}
+% \begin{frame}
+%   \begin{figure}[p]
+%     \centering
+%     \fbox{\includegraphics[width=0.8\paperwidth]{images/search-counts.png}}
 
-    \vfill
+%     \vfill
 
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/pagination.png}}
-  \end{figure}
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{A Partial Fix}
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
-
-    # Don't show counts on filtered admin pages
-    # (e.g. 99 results (103 total))
-    show_full_result_count = False
-\end{minted}
-}
-\end{frame}
+%     \fbox{\includegraphics[width=0.8\paperwidth]{images/pagination.png}}
+%   \end{figure}
+% \end{frame}
 
 
-\begin{frame}[fragile]
-\frametitle{A Fix for Expensive Counts}
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
+% \begin{frame}[fragile]
+% \frametitle{A Partial Fix}
+% {\tiny
+% \begin{minted}{python}
+% ## blog/admin.py
 
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
+% @admin.register(Post)
+% class PostAdmin(admin.ModelAdmin):
+%     # ...
 
-    # Use a custom paginator
-    paginator = CustomPaginator
-\end{minted}
-}
-\end{frame}
+%     # Don't show counts on filtered admin pages
+%     # (e.g. 99 results (103 total))
+%     show_full_result_count = False
+% \end{minted}
+% }
+% \end{frame}
 
 
-\begin{frame}
-\frametitle{Custom Paginator Approaches}
-  \begin{itemize}
-    \item {\small Use a count estimate from your database backend}
-    \item {\small Hard code a large number for the count}
-    \item {\small Cache the number of rows (or otherwise calculate infrequently)}
-  \end{itemize}
-\end{frame}
+% \begin{frame}[fragile]
+% \frametitle{A Fix for Expensive Counts}
+% {\tiny
+% \begin{minted}{python}
+% ## blog/admin.py
+
+% @admin.register(Post)
+% class PostAdmin(admin.ModelAdmin):
+%     # ...
+
+%     # Use a custom paginator
+%     paginator = CustomPaginator
+% \end{minted}
+% }
+% \end{frame}
+
+
+% \begin{frame}
+% \frametitle{Custom Paginator Approaches}
+%   \begin{itemize}
+%     \item {\small Use a count estimate from your database backend}
+%     \item {\small Hard code a large number for the count}
+%     \item {\small Cache the number of rows (or otherwise calculate infrequently)}
+%   \end{itemize}
+% \end{frame}
 
 
 \begin{frame}
@@ -340,6 +340,7 @@ class PostAdmin(admin.ModelAdmin):
 \frametitle{Resources}
   \begin{itemize}
     \item {\small \href{https://www.youtube.com/watch?v=f8cFjiyxQuQ}{But, Why is the Django Admin Slow? (Jacinda Shelly - PyCon 2019)}}
+    \item {\small \href{https://django-debug-toolbar.readthedocs.io/en/latest/}{Django Debug Toolbar}}
     \item {\small \href{https://docs.djangoproject.com/en/2.2/ref/contrib/admin/}{Django Admin Site Docs}}
     \item {\small \href{https://docs.djangoproject.com/en/2.2/topics/db/optimization/}{Django DB Access Optimization Docs}}
     \item {\small Django Admin Cookbook - \href{https://books.agiliq.com/projects/django-admin-cookbook}{books.agiliq.com}}
