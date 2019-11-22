@@ -5,6 +5,8 @@ This talk is made up of slides and code samples.
 If you just want to download the slides,
 you can do that in the "Releases" section of the repository.
 
+You can also watch a video of this talk on `YouTube <https://youtu.be/F60CSzpe-As>`_.
+
 
 Other talks in this series
 --------------------------
