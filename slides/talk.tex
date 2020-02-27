@@ -1,8 +1,8 @@
 \documentclass[aspectratio=169]{beamer}
 
-\title{Optimizing the Django Admin}
+\title{Securing the Django Admin}
 \author{David Fischer (djfische@gmail.com)}
-\date{November 21, 2019}
+\date{February 26, 2020}
 
 %% Beamer Themes
 \usetheme{Berlin}
@@ -34,74 +34,83 @@
 }
 
 
+
+
 \begin{document}
 
 \maketitle
 
 
-% Fragile is required for syntax highlighting
+\begin{frame}
+  \begin{figure}[p]
+    \centering
+    \includegraphics[width=0.5\paperwidth]{images/securing-django-admin-login.png}
+  \end{figure}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Django deployment musts}
+  \begin{itemize}
+    \item Keep the SECRET\_KEY a secret
+    \item Never run DEBUG = True on the public internet
+    \item Run ``./manage.py check —deploy'' in production
+    \item Check out the \href{https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/}{Django deployment checklist}
+    \item Read the \href{https://docs.djangoproject.com/en/2.2/topics/security/}{Django security docs}
+  \end{itemize}
+\end{frame}
+
+
 \begin{frame}[fragile]
-\frametitle{Some models (trimmed for brevity)}
+\frametitle{Django settings for production and development}
 
 \begin{multicols}{2}
 
 {\tiny
 \begin{minted}{python}
-## blog/models.py
+## settings/base.py
 
-class Category(models.Model):
-    name = models.CharField(max_length=255)
+INSTALLED_APPS = [
+    # ...
+]
 
-class Author(models.Model):
-    name = models.CharField(max_length=255)
-    status = models.CharField(
-        choices=(("staff", "Staff"), ("guest", "Guest")),
-        max_length=255,
-    )
+MIDDLEWARE = [
+    # ...
+]
 
-class Post(models.Model):
-    title = models.CharField(max_length=200)
-    author = models.ForeignKey(
-      Author, 
-      on_delete=models.CASCADE,
-    )
-    categories = models.ManyToManyField(Category)
-    body = models.TextField()
-    publish_date = models.DateTimeField()
-
-    def __str__(self):
-        return f'{self.title} by {self.author}'
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_L10N = True
+USE_TZ = True
 \end{minted}
-} 
+}
 
 \columnbreak
 
 {\tiny
 \begin{minted}{python}
-## blog/admin.py
+## settings/dev.py
 
-@admin.register(Author)
-class AuthorAdmin(admin.ModelAdmin):
-    list_display = ("name", "status")
-    list_editable = ("status",)
+from .base import *
 
-
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name",)
+# Enable django-debug-toolbar
+MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
+INSTALLED_APPS += ["debug_toolbar"]
 
 
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    list_display = (
-      "__str__",
-      "post_categories", 
-      "publish_date",
-    )
+## settings/prod.py
 
-    def post_categories(self, obj):
-        """Show a combined list of categories for each post"""
-        return ", ".join([c.name for c in obj.categories.all()])
+from .base import *
+import environ
+
+env = environ.Env()
+
+SECRET_KEY = env("SECRET_KEY")
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+DEBUG = False
+TEMPLATE_DEBUG = DEBUG
+
 \end{minted}
 }
 
@@ -110,78 +119,34 @@ class PostAdmin(admin.ModelAdmin):
 \end{frame}
 
 
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/django-admin-blog.png}}
-  \end{figure}
-\end{frame}
+
 
 
 \begin{frame}
+\frametitle{Only serve the admin over HTTPS}
   \begin{figure}[p]
     \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/django-debug-toolbar.png}}
-  \end{figure}
-\end{frame}
-
-
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/debug-toolbar-queries.png}}
+    \includegraphics[width=0.6\paperwidth]{images/securing-admin-https.png}
   \end{figure}
 \end{frame}
 
 
 \begin{frame}[fragile]
-\frametitle{One Culprit}
+\frametitle{HTTPS settings}
 
 {\tiny
 \begin{minted}{python}
-## blog/models.py
+## settings/prod.py
 
-class Post(models.Model):
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+# Only send cookies over HTTPS
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
-    # ...
+# Always redirect HTTP -> HTTPS
+SECURE_SSL_REDIRECT = True
 
-    def __str__(self):
-        return f'{self.title} by {self.author}'
-\end{minted}
-}
-
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{One Possible Fix}
-
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
-    list_select_related = ("author",)
-\end{minted}
-}
-
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Another Possible Fix}
-
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
-    list_display = ("title", "author", "post_categories", "publish_date")
+# There are more Django security settings
+# Did you run ./manage.py check --deploy ?
 \end{minted}
 }
 
@@ -191,160 +156,45 @@ class PostAdmin(admin.ModelAdmin):
 \begin{frame}
   \begin{figure}[p]
     \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/half-done.png}}
+    \includegraphics[width=0.4\paperwidth]{images/securing-admin-brute-force.png}
   \end{figure}
 \end{frame}
 
 
 \begin{frame}[fragile]
-\frametitle{Another Culprit}
+\frametitle{Selectively enabling the Django Admin}
 
 {\tiny
 \begin{minted}{python}
-## blog/admin.py
+## urls.py
 
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
+if settings.ADMIN_ENABLED:
+    urlpatterns += [
+        path(f"{settings.ADMIN_URL}/", admin.site.urls),
+    ]
 
-    def post_categories(self, obj):
-        """Show a combined list of categories for each post"""
-        return ", ".join([c.name for c in obj.categories.all()])
+
+## settings/base.py
+
+ADMIN_ENABLED = env.bool("ADMIN_ENABLED", default=True)
+ADMIN_URL = env("ADMIN_URL", default="admin")
 \end{minted}
 }
 
 \end{frame}
 
 
-\begin{frame}[fragile]
-\frametitle{Handling Reverse FK Relations or ManyToMany Relations}
 
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        qs = qs.prefetch_related("categories")
-        return qs
-\end{minted}
-}
-
-\end{frame}
-
-
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/query-optimization-done.png}}
-  \end{figure}
-\end{frame}
-
-
-% \begin{frame}
-%   \begin{figure}[p]
-%     \centering
-%     \fbox{\includegraphics[width=0.8\paperwidth]{images/search-counts.png}}
-
-%     \vfill
-
-%     \fbox{\includegraphics[width=0.8\paperwidth]{images/pagination.png}}
-%   \end{figure}
-% \end{frame}
-
-
-% \begin{frame}[fragile]
-% \frametitle{A Partial Fix}
-% {\tiny
-% \begin{minted}{python}
-% ## blog/admin.py
-
-% @admin.register(Post)
-% class PostAdmin(admin.ModelAdmin):
-%     # ...
-
-%     # Don't show counts on filtered admin pages
-%     # (e.g. 99 results (103 total))
-%     show_full_result_count = False
-% \end{minted}
-% }
-% \end{frame}
-
-
-% \begin{frame}[fragile]
-% \frametitle{A Fix for Expensive Counts}
-% {\tiny
-% \begin{minted}{python}
-% ## blog/admin.py
-
-% @admin.register(Post)
-% class PostAdmin(admin.ModelAdmin):
-%     # ...
-
-%     # Use a custom paginator
-%     paginator = CustomPaginator
-% \end{minted}
-% }
-% \end{frame}
-
-
-% \begin{frame}
-% \frametitle{Custom Paginator Approaches}
-%   \begin{itemize}
-%     \item {\small Use a count estimate from your database backend}
-%     \item {\small Hard code a large number for the count}
-%     \item {\small Cache the number of rows (or otherwise calculate infrequently)}
-%   \end{itemize}
-% \end{frame}
-
-
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/quantity-foreign-keys.png}}
-  \end{figure}
-\end{frame}
-
-
-\begin{frame}[fragile]
-\frametitle{Large Numbers of Foreign Key Choices}
-
-{\tiny
-\begin{minted}{python}
-## blog/admin.py
-
-@admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
-    # ...
-
-    raw_id_fields = ("author",)
-\end{minted}
-}
-
-\end{frame}
-
-
-\begin{frame}
-  \begin{figure}[p]
-    \centering
-    \fbox{\includegraphics[width=0.8\paperwidth]{images/foreign-key-selector.png}}
-  \end{figure}
-\end{frame}
-
-
+% Peter's talk goes into more including scaling and deploying
+% but the section on securing is good
 \begin{frame}
 \frametitle{Resources}
   \begin{itemize}
-    \item {\small \href{https://www.youtube.com/watch?v=f8cFjiyxQuQ}{But, Why is the Django Admin Slow? (Jacinda Shelly - PyCon 2019)}}
-    \item {\small \href{https://django-debug-toolbar.readthedocs.io/en/latest/}{Django Debug Toolbar}}
-    \item {\small \href{https://docs.djangoproject.com/en/2.2/ref/contrib/admin/}{Django Admin Site Docs}}
-    \item {\small \href{https://docs.djangoproject.com/en/2.2/topics/db/optimization/}{Django DB Access Optimization Docs}}
-    \item {\small Django Admin Cookbook - \href{https://books.agiliq.com/projects/django-admin-cookbook}{books.agiliq.com}}
-    \item {\small \href{https://hakibenita.com/tag/django-admin}{hakibenita.com}}
+    \item {\small \href{https://2019.djangocon.us/talks/prepping-your-project-for-production/}{Prepping Your Project for Production (Peter Baumgartner - Djangocon US 2019)}}
+    \item {\small \href{https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Deployment}{Mozilla's Django deployment tutorial}}
+    \item {\small \href{https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/}{Django deployment checklist}}
+    \item {\small \href{https://docs.djangoproject.com/en/2.2/topics/security/}{Django security docs}}
+    \item {\small \href{https://observatory.mozilla.org/}{Mozilla Observatory}}
   \end{itemize}
 \end{frame}
 
@@ -354,13 +204,13 @@ class PostAdmin(admin.ModelAdmin):
   Past Talks
   \begin{itemize}
     \item {\small \href{https://github.com/davidfischer/talk-customizing-django-admin}{Customizing the Django Admin}}
+    \item {\small \href{https://github.com/davidfischer/talk-optimizing-django-admin}{Optimizing the Django Admin}}
   \end{itemize}
 
   \vfill
 
   Future Talks
   \begin{itemize}
-    \item {\small Securing the Django Admin}
     \item {\small Django Admin Add-Ons \& Extensions}
   \end{itemize}
 \end{frame}

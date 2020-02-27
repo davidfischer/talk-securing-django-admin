@@ -5,10 +5,13 @@ RM = /bin/rm -rf
 PDFLATEX = pdflatex
 OPTIONS = --shell-escape
 
+FINAL_TITLE = securing-the-django-admin.pdf
+
 all: pdf
 
 pdf:
 	$(PDFLATEX) $(OPTIONS) talk.tex
+	cp talk.pdf $(FINAL_TITLE)
 
 clean:
-	$(RM) *.aux *.log *.dvi *.pdf *.txt *.gz
+	$(RM) *.aux *.log *.dvi *.pdf *.txt *.gz *.nav *.out *.snm *.toc *.vrb _minted-talk
